@@ -1,0 +1,169 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * This module adds a textfield to product forms for you to enter a minimum
+ * quantity of the product that must be in the cart for it to be checked out.
+ *
+ * The product minimum checkout pane must be the lowest weighted cart pane in
+ * order for the logic to properly intercept any invalid carts.
+ *
+ * Coded by Ryan of Ubercart.org.
+ *
+ * Development sponsored by Plum Drama - http://www.plumdrama.com
+ */
+
+
+/*******************************************************************************
+ * Hook Functions (Drupal)
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function uc_product_min_nodeapi(&$node, $op, $arg3 = null, $arg4 = null) {
+  switch($op) {
+    case 'delete':
+      db_query("DELETE FROM {uc_product_min} WHERE nid = %d", $node->nid);
+      break;
+
+    case 'load':
+      $result = db_query("SELECT * FROM {uc_product_min} WHERE nid = %d", $node->nid);
+      if ($row = db_fetch_object($result)) {
+        return array('product_min' => $row->product_min, 'pmin_multiple' => $row->pmin_multiple); 
+      }
+      break;
+
+    case 'insert':
+    case 'update':
+      $node->product_min = intval($node->product_min);
+      if ($node->product_min <= 0) {
+        db_query("DELETE FROM {uc_product_min} WHERE nid = %d", $node->nid);
+      }
+      else {
+        db_query("UPDATE {uc_product_min} SET product_min = %d, pmin_multiple = %d WHERE nid = %d", $node->product_min, $node->pmin_multiple, $node->nid);
+        if (db_affected_rows() == 0) {
+          db_query("INSERT INTO {uc_product_min} VALUES (%d, %d, %d)", $node->nid, $node->product_min, $node->pmin_multiple);
+        }
+      }
+      break;
+
+    case 'view':
+      if ($node->product_min > 1) {
+        drupal_add_css(drupal_get_path('module', 'uc_product_min') .'/uc_product_min.css');
+
+        $node->content['product_min'] = array(
+          '#value' => theme('uc_product_min', $node->product_min, $node->pmin_multiple),
+          '#weight' => 2,
+        );
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function uc_product_min_form_alter(&$form, &$form_state, $form_id) {
+  $node = $form['#node'];
+  $product_types = uc_product_node_info();
+  if ($form_id == $node->type .'_node_form' && isset($product_types[$node->type])){
+    $form['product_min_fieldset'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Product minimum'),
+      '#collapsed' => FALSE,
+    );
+    $form['product_min_fieldset']['product_min'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Minimum quantity to checkout'),
+      '#description' => t('Enter the minimum quantity of this product needed to checkout.'),
+      '#default_value' => !empty($node->product_min) ? $node->product_min : 1,
+    );
+    $form['product_min_fieldset']['pmin_multiple'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Products must be purchased in multiples of the above value.'),
+      '#default_value' => $node->pmin_multiple,
+    );
+  }
+}
+
+
+/*******************************************************************************
+ * Hook Functions (Ubercart)
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_checkout_pane().
+ */
+function uc_product_min_checkout_pane() {
+  $panes[] = array(
+    'id' => 'product_min',
+    'callback' => 'uc_checkout_pane_product_min',
+    'title' => t('Product minimums'),
+    'desc' => t('Checks a cart to make sure it meets the product minimum requirements.'),
+    'weight' => -10,
+  );
+
+  return $panes;
+}
+
+
+/*******************************************************************************
+ * Callback Functions, Forms, and Tables
+ ******************************************************************************/
+
+// Checks the cart at checkout to make sure it's valid.
+function uc_checkout_pane_product_min($op) {
+  switch ($op) {
+    case 'view':
+      $items = uc_cart_get_contents();
+      $pass = TRUE;
+
+      $nids = array();
+      foreach ($items as $item) {
+        $nids[] = $item->nid;
+      }
+
+      $result = db_query("SELECT * FROM {uc_product_min} WHERE nid IN (%s)", implode(',', $nids));
+      while ($row = db_fetch_object($result)) {
+        $min[$row->nid] = array(
+          'min' => $row->product_min,
+          'multiple' => $row->pmin_multiple,
+        );
+      }
+
+      foreach ($items as $item) {
+        if ($min[$item->nid]['multiple']) {
+          if ($item->qty % $min[$item->nid]['min'] != 0) {
+            drupal_set_message(t('!item must be ordered in multiples of !qty.', array('!item' => $item->title, '!qty' => $min[$item->nid]['min'])), 'error');
+            $pass = FALSE;
+          }
+        }
+        else {
+          if ($item->qty < $min[$item->nid]['min']) {
+            drupal_set_message(t('You must order at least !qty of !item to proceed to checkout.', array('!qty' => $min[$item->nid]['min'], '!item' => $item->title)), 'error');
+            $pass = FALSE;
+          }
+        }
+      }
+
+      if (!$pass) {
+        drupal_set_message(t('Please update your cart contents and try again.'), 'error');
+        drupal_goto('cart');
+      }
+  }
+}
+
+// Themes the product minimum notice line on product view pages.
+function theme_uc_product_min($min, $multiple) {
+  if ($multiple) {
+    $output = t('This product must be ordered in sets of !qty.', array('!qty' => $min));
+  }
+  else {
+    $output = t('Must order at least !qty to checkout.', array('!qty' => $min));
+  }
+
+  return '<div class="uc_product_min">'. $output .'</div>';
+}
+

@@ -1,0 +1,7 @@
+; $Id$
+name = Product Minimum
+description = Set a minimum quantity for products in a cart necessary for checkout.
+dependencies[] = uc_product
+package = Ubercart - extra
+core = 6.x
+

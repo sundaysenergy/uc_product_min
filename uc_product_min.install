@@ -1,0 +1,20 @@
+<?php
+// $Id$
+
+function uc_product_min_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {uc_product_min} (
+        nid INT(10) NOT NULL,
+        product_min MEDIUMINT NOT NULL,
+        pmin_multiple TINYINT NOT NULL,
+        PRIMARY KEY (nid)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+      break;
+  }
+}
+
+function uc_product_min_uninstall() {
+  db_query("DROP TABLE IF EXISTS {uc_product_min}");
+}
