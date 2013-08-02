@@ -125,13 +125,7 @@ function uc_checkout_pane_product_min($op) {
         $nids[] = $item->nid;
       }
 
-      $result = db_query("SELECT * FROM {uc_product_min} WHERE nid IN (%s)", implode(',', $nids));
-      while ($row = db_fetch_object($result)) {
-        $min[$row->nid] = array(
-          'min' => $row->product_min,
-          'multiple' => $row->pmin_multiple,
-        );
-      }
+      $min = _uc_product_min_get($nids)
 
       foreach ($items as $item) {
         if ($min[$item->nid]['multiple']) {
@@ -141,8 +135,34 @@ function uc_checkout_pane_product_min($op) {
           }
         }
         else {
-          if ($item->qty < $min[$item->nid]['min']) {
-            drupal_set_message(t('You must order at least !qty of !item to proceed to checkout.', array('!qty' => $min[$item->nid]['min'], '!item' => $item->title)), 'error');
+          // Check to see if it is in a group first.
+          if (isset($min[$item->nid]['group'])) {
+            $group_name = $min[$item->nid]['group'];
+            if (!isset($group[$group_name])) {
+              $group[$group_name]['qty'] = $item->qty;
+            }
+            else {
+              $group[$group_name] += $item->qty;
+            }
+            $group[$group_name]['nids'][] = $item->nid;
+            $group[$group_name]['titles'][] = $item->title;
+          }
+          // Not part of a group
+          else {
+            if ($item->qty < $min[$item->nid]['min']) {
+              drupal_set_message(t('You must order at least !qty of !item to proceed to checkout.', array('!qty' => $min[$item->nid]['min'], '!item' => $item->title)), 'error');
+              $pass = FALSE;
+            }
+          }
+        }
+      }
+
+      // Group qty checks
+      if (isset($group) && is_array($group)) {
+        foreach($group as $group_name => $group_info) {
+          if ($group_info['qty'] < $min['group'][$group_name]) {
+            $items = implode(', ', $group_info['titles']);
+            drupal_set_message(t('The combined total of !items must be !qty or more.', array('!items' => $items, '!qty' => $min['group'][$group_name])), 'error');
             $pass = FALSE;
           }
         }
@@ -153,6 +173,47 @@ function uc_checkout_pane_product_min($op) {
         drupal_goto('cart');
       }
   }
+}
+
+/**
+ * Grab the minimum value for products in cart.
+ */
+function _uc_product_min_get($nids) {
+  if (is_numeric($nids)) {
+    $nids = array($nids);
+  }
+  $result = db_query("SELECT * FROM {uc_product_min} WHERE nid IN (%s)", implode(',', $nids));
+
+  $group_name = variable_get('uc_product_min_group_name', 'it_works');
+  $group = variable_get('uc_product_min_group_nids', FALSE);
+  if ($group && is_string($group) && strpos($group, ',')) {
+    $group = str_replace(' ', '', $group);
+    $group = explode(',', $group);
+    if (!is_array($group) || count($group) < 2) {
+      $group = FALSE;
+    }
+    else {
+      $group_qty = variable_get('uc_product_min_group_qty', 3);
+    }
+  }
+  else {
+    $group = FALSE;
+  }
+
+  while ($row = db_fetch_object($result)) {
+    $min[$row->nid] = array(
+      'min' => $row->product_min,
+      'multiple' => $row->pmin_multiple,
+    );
+    if ($group && in_array($row->nid, $group)) {
+      $min[$row->nid]['group'] = $group_name;
+    }
+  }
+  if (isset($group_qty)) {
+    $min['group'][$group_name] = $group_qty;
+  }
+
+  return $min;
 }
 
 // Themes the product minimum notice line on product view pages.
