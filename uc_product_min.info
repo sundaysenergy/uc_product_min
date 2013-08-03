@@ -4,4 +4,4 @@ description = Set a minimum quantity for products in a cart necessary for checko
 dependencies[] = uc_product
 package = Ubercart - extra
 core = 6.x
-
+version = "6.x-1.1"

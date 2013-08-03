@@ -185,7 +185,8 @@ function _uc_product_min_get($nids) {
   $result = db_query("SELECT * FROM {uc_product_min} WHERE nid IN (%s)", implode(',', $nids));
 
   $group_name = variable_get('uc_product_min_group_name', 'it_works');
-  $group = variable_get('uc_product_min_group_nids', FALSE);
+  $group = variable_get('uc_product_min_group_nids', FALSE); //30,28,313
+
   if ($group && is_string($group) && strpos($group, ',')) {
     $group = str_replace(' ', '', $group);
     $group = explode(',', $group);
