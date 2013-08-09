@@ -39,7 +39,7 @@ function uc_product_min_admin_settings_form() {
 
   $form['uc_product_min_group_nids'] = array(
     '#type' => 'textfield',
-    '#title' => t('Group nids.'),
+    '#title' => t('Group nids'),
     '#default_value' => variable_get('uc_product_min_group_nids', '28,55,313'),
     '#size' => 20,
     '#maxlength' => 20,
@@ -48,8 +48,8 @@ function uc_product_min_admin_settings_form() {
   );
   $form['uc_product_min_group_qty'] = array(
     '#type' => 'textfield',
-    '#title' => t('Group nids.'),
-    '#default_value' => variable_get('uc_product_min_group_qty', '250'),
+    '#title' => t('Group minimum quantity'),
+    '#default_value' => variable_get('uc_product_min_group_qty', '150'),
     '#size' => 3,
     '#maxlength' => 3,
     '#description' => t("List the minimum qty for the combined total of the group products."),
@@ -295,7 +295,7 @@ function _uc_product_min_get_custom_min(&$items) {
  *
  */
 function _uc_product_min_get_group_qty($group_name = '') {
-  return variable_get('uc_product_min_group_qty', 250);
+  return variable_get('uc_product_min_group_qty', 150);
 }
 
 /**
