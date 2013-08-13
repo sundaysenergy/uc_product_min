@@ -271,7 +271,7 @@ function _uc_product_min_get_group(&$items) {
     foreach ($items as $id => $item) {
       if (in_array($item->nid, $group_nids)) {
         $items[$id]->group = $group_name;
-        $group_items[] = $item->nid;
+        $group_items[] = (int) $item->nid;
       }
     }
   }
@@ -307,6 +307,9 @@ function _uc_product_min_group($name = '') {
   if ($group && is_string($group) && strpos($group, ',')) {
     $group = str_replace(' ', '', $group);
     $group = explode(',', $group);
+    foreach($group as $i => $nid) {
+      $group[$i] = (int) $nid;
+    }
     if (!is_array($group) || count($group) < 2) {
       $group = FALSE;
     }
