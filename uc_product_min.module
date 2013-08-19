@@ -252,8 +252,8 @@ function _uc_product_min_get_min(&$items) {
       if (isset($result->product_min) && $result->product_min) {
         $items[$id]->min = $result->product_min;
       }
-      if (isset($result->pmin_multiple)) {
-        $items[$id]->multiple = $result->pmin_multiple;
+      if (isset($result->pmin_multiple) and isset($result->product_min)) {
+        $items[$id]->multiple = $result->product_min;
       }
     }
   }
